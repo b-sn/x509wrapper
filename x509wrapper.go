@@ -27,12 +27,7 @@ type X509CertWrapper struct {
 	KeyFile    string
 }
 
-type CertLocation struct {
-	Name string
-	Dir  string
-}
-
-func NewCert(loc *CertLocation) *X509CertWrapper {
+func NewCert(name string, dir string) *X509CertWrapper {
 	cert := &X509CertWrapper{
 		Name: defaultCAname,
 		Dir:  "./",
@@ -40,15 +35,11 @@ func NewCert(loc *CertLocation) *X509CertWrapper {
 
 	defer cert.normalize()
 
-	if loc == nil {
-		return cert
+	if name != "" {
+		cert.Name = name
 	}
-
-	if loc.Name != "" {
-		cert.Name = loc.Name
-	}
-	if loc.Dir != "" {
-		cert.Dir = loc.Dir
+	if dir != "" {
+		cert.Dir = dir
 	}
 
 	return cert

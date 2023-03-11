@@ -20,7 +20,7 @@ func TestMain(m *testing.M) {
 }
 
 func TestNewCertDefault(t *testing.T) {
-	cert := NewCert(nil)
+	cert := NewCert("", "")
 	assert.Equal(t, "ca", cert.Name, "Default certificate name")
 	default_dir, _ := filepath.Abs("./")
 	assert.Equal(t, default_dir, cert.Dir, "Default certificate file dir")
@@ -31,10 +31,7 @@ func TestNewCertDefault(t *testing.T) {
 }
 
 func TestNewCert(t *testing.T) {
-	cert := NewCert(&CertLocation{
-		Name: " -Test - CA ",
-		Dir:  "/tmp/smth/../test_cert",
-	})
+	cert := NewCert(" -Test - CA ", "/tmp/smth/../test_cert")
 	assert.Equal(t, "-Test - CA", cert.Name, "Normalized certificate name")
 	assert.Equal(t, testDir, cert.Dir, "Normalized certificate file dir")
 	assert.Equal(t, testDir+"/test-ca.crt", cert.CertFile, "Normalized certificate file name")
@@ -44,10 +41,7 @@ func TestNewCert(t *testing.T) {
 }
 
 func TestCreateNewCert(t *testing.T) {
-	cert := NewCert(&CertLocation{
-		Name: "test $ CA",
-		Dir:  "/tmp/./test_cert",
-	})
+	cert := NewCert("test $ CA", "/tmp/./test_cert")
 
 	// Try to load cert from testDir
 	err := cert.Load()
@@ -88,10 +82,7 @@ func TestCreateNewCert(t *testing.T) {
 }
 
 func TestSignNewCert(t *testing.T) {
-	cert := NewCert(&CertLocation{
-		Name: "Test CA",
-		Dir:  "/tmp/./test_cert",
-	})
+	cert := NewCert("Test CA", "/tmp/./test_cert")
 
 	// Try to load cert from testDir
 	err := cert.Load()
@@ -101,10 +92,7 @@ func TestSignNewCert(t *testing.T) {
 	assert.NotEmpty(t, cert.PrivateKey, "Key pair should be loaded")
 
 	// Initiate new certificate wrapper
-	clientCert := NewCert(&CertLocation{
-		Name: "Client",
-		Dir:  "/tmp/test_cert",
-	})
+	clientCert := NewCert("Client", "/tmp/test_cert")
 
 	// Try to load cert from testDir
 	err = clientCert.Load()
