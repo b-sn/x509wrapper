@@ -27,12 +27,7 @@ type X509CertWrapper struct {
 	KeyFile    string
 }
 
-type CertLocation struct {
-	Name string
-	Dir  string
-}
-
-func NewCert(loc *CertLocation) *X509CertWrapper {
+func NewCert(name string, dir string) *X509CertWrapper {
 	cert := &X509CertWrapper{
 		Name: defaultCAname,
 		Dir:  "./",
@@ -40,15 +35,11 @@ func NewCert(loc *CertLocation) *X509CertWrapper {
 
 	defer cert.normalize()
 
-	if loc == nil {
-		return cert
+	if name != "" {
+		cert.Name = name
 	}
-
-	if loc.Name != "" {
-		cert.Name = loc.Name
-	}
-	if loc.Dir != "" {
-		cert.Dir = loc.Dir
+	if dir != "" {
+		cert.Dir = dir
 	}
 
 	return cert
@@ -220,7 +211,7 @@ func PrepareCert(subj pkix.Name, dns []string, notBefore time.Time, notAfter tim
 	return &x509.Certificate{
 		SerialNumber: createSerialNumber(),
 		Subject:      subj,
-		DNSNames:     dns, // []string{"192.168.177.129"},
+		DNSNames:     dns,
 		NotBefore:    notBefore,
 		NotAfter:     notAfter,
 		SubjectKeyId: []byte{1, 2, 3, 4, 6},
@@ -268,7 +259,7 @@ func readDataFromFile(filePath string) ([]byte, error) {
 
 	data, err := os.ReadFile(filePath)
 	if err != nil {
-		return nil, fmt.Errorf("failed to read file [%s]: %w", filePath, err)
+		return nil, fmt.Errorf("failed to read file : %w", err)
 	}
 
 	pemBlock, _ := pem.Decode(data)
@@ -296,7 +287,7 @@ func writeDataToFile(absFilePath string, data []byte, pemType string) error {
 		return err
 	}
 
-	if err := os.WriteFile(absFilePath, pemData.Bytes(), 0644); err != nil {
+	if err := os.WriteFile(absFilePath, pemData.Bytes(), 0600); err != nil {
 		return fmt.Errorf("failed to write certificate file: %w", err)
 	}
 
