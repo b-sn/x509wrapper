@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"regexp"
 	"strings"
@@ -25,6 +26,7 @@ type X509CertWrapper struct {
 	CertFile   string
 	PrivateKey *rsa.PrivateKey
 	KeyFile    string
+	FileName   string
 }
 
 func NewCert(name string, dir string) *X509CertWrapper {
@@ -111,29 +113,12 @@ func (c *X509CertWrapper) Load() error {
 	return nil
 }
 
-// Save certificate and private key to files
+// Save certificate and private key to PEM files
 // Optionally, another certificate can be send as a parameter as a signer
 func (c *X509CertWrapper) Save(signBy *X509CertWrapper) error {
 
-	if signBy == nil {
-		signBy = c
-	} else {
-		if signBy.Cert == nil {
-			return fmt.Errorf("generate certificate before saving")
-		}
-		if signBy.PrivateKey == nil {
-			return fmt.Errorf("generate private key before saving")
-		}
-		if !signBy.ExistsBoth() {
-			return fmt.Errorf("need to save cert files before signing")
-		}
-	}
-
-	if c.Cert == nil {
-		return fmt.Errorf("need to generate certificate before saving")
-	}
-	if c.PrivateKey == nil {
-		return fmt.Errorf("need to generate private key before saving")
+	if err := c.isReadyToSave(signBy); err != nil {
+		return err
 	}
 
 	if c.ExistsAny() {
@@ -142,6 +127,10 @@ func (c *X509CertWrapper) Save(signBy *X509CertWrapper) error {
 			c.Name,
 			c.Dir,
 		)
+	}
+
+	if signBy == nil {
+		signBy = c
 	}
 
 	caBytes, err := x509.CreateCertificate(
@@ -173,6 +162,54 @@ func (c *X509CertWrapper) Save(signBy *X509CertWrapper) error {
 	return nil
 }
 
+// Save certificate and private key to files in PKCS12 format
+func (c *X509CertWrapper) SaveAsPKCS12(pass string) error {
+
+	if !c.ExistsBoth() {
+		return fmt.Errorf("certificate and private key files must exist before saving as PKCS12")
+	}
+
+	if _, err := exec.LookPath("openssl"); err != nil {
+		return fmt.Errorf("openssl is not installed")
+	}
+
+	if err := exec.Command(
+		"openssl",
+		"pkcs12",
+		"-export",
+		"-in", c.CertFile,
+		"-inkey", c.KeyFile,
+		"-out", filepath.Join(c.Dir, fmt.Sprintf("%s.pfx", c.FileName)),
+		"-password", fmt.Sprintf("pass:%s", pass),
+	).Run(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func (c *X509CertWrapper) isReadyToSave(signBy *X509CertWrapper) error {
+	if signBy != nil {
+		if signBy.Cert == nil {
+			return fmt.Errorf("generate certificate before saving")
+		}
+		if signBy.PrivateKey == nil {
+			return fmt.Errorf("generate private key before saving")
+		}
+		if !signBy.ExistsBoth() {
+			return fmt.Errorf("need to save cert files before signing")
+		}
+	}
+
+	if c.Cert == nil {
+		return fmt.Errorf("need to generate certificate before saving")
+	}
+	if c.PrivateKey == nil {
+		return fmt.Errorf("need to generate private key before saving")
+	}
+	return nil
+}
+
 // Fill X509CertWrapper with correct data after creation
 func (c *X509CertWrapper) normalize() {
 
@@ -181,12 +218,12 @@ func (c *X509CertWrapper) normalize() {
 		panic(err)
 	}
 
-	fileName := normalizeName(c.Name)
+	c.FileName = normalizeName(c.Name)
 
 	c.Dir = absDir
 	c.Name = strings.Trim(c.Name, " ")
-	c.CertFile = filepath.Join(c.Dir, fmt.Sprintf("%s.crt", fileName))
-	c.KeyFile = filepath.Join(c.Dir, fmt.Sprintf("%s.key", fileName))
+	c.CertFile = filepath.Join(c.Dir, fmt.Sprintf("%s.crt", c.FileName))
+	c.KeyFile = filepath.Join(c.Dir, fmt.Sprintf("%s.key", c.FileName))
 }
 
 // Return CA certificate
@@ -277,17 +314,20 @@ func writeDataToFile(absFilePath string, data []byte, pemType string) error {
 		return fmt.Errorf("file with name [%s] alredy exists", absFilePath)
 	}
 
-	pemData := new(bytes.Buffer)
-	err := pem.Encode(pemData, &pem.Block{Type: pemType, Bytes: data})
-	if err != nil {
-		return fmt.Errorf("failed to encode PEM: %w", err)
+	if pemType != "" {
+		pemData := new(bytes.Buffer)
+		err := pem.Encode(pemData, &pem.Block{Type: pemType, Bytes: data})
+		if err != nil {
+			return fmt.Errorf("failed to encode PEM: %w", err)
+		}
+		data = pemData.Bytes()
 	}
 
 	if err := os.MkdirAll(filepath.Dir(absFilePath), 0700); err != nil {
 		return err
 	}
 
-	if err := os.WriteFile(absFilePath, pemData.Bytes(), 0600); err != nil {
+	if err := os.WriteFile(absFilePath, data, 0600); err != nil {
 		return fmt.Errorf("failed to write certificate file: %w", err)
 	}
 
