@@ -12,7 +12,7 @@ import (
 
 CACert := x509wrapper.NewCert("CA", "./certs")
 
-// Add new CA cert and private key
+// Create a new CA cert and a private key
 if err := CACert.AddCertAndKey(x509wrapper.PrepareCA(
 	pkix.Name{
 		…
@@ -48,7 +48,7 @@ To create a new certificate and sign with CA:
 newCert := x509wrapper.NewCert("Server cert", "./certs")
 
 // Create new certificate
-if err := newCertWrap.AddCertAndKey(x509wrapper.PrepareCert(
+if err := newCert.AddCertAndKey(x509wrapper.PrepareCert(
 	pkix.Name{
 		…
 	},
@@ -60,10 +60,7 @@ if err := newCertWrap.AddCertAndKey(x509wrapper.PrepareCert(
 }
 
 // Use CACert to sign new certificate before saving
-if err := newCertWrap.Save(CACert); err != nil {
+if err := newCert.Save(CACert); err != nil {
 	Fatal("Save new Certificate error: %v", err)
 }
 ```
-
-
-
